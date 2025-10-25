@@ -1,0 +1,53 @@
+/* ========================================
+   Footer Styles
+   ======================================== */
+
+.footer {
+  margin-top: auto;
+  padding: 3rem 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+body.light-theme .footer {
+  border-top: 1px solid rgba(37, 99, 235, 0.12);
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  list-style: none;
+  margin: 0 0 1rem 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.footer-links a {
+  color: var(--text);
+  font-size: 0.95rem;
+  opacity: 0.8;
+}
+
+.footer-links a:hover {
+  opacity: 1;
+  color: var(--user-text);
+}
+
+.footer-copyright {
+  color: var(--text);
+  opacity: 0.6;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .footer {
+    padding: 2rem 0;
+  }
+  
+  .footer-links {
+    gap: 1rem;
+  }
+}

@@ -1,0 +1,69 @@
+/* ========================================
+   Chip Dual - Work In Progress Page
+   ======================================== */
+
+.chip-dual-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.wip-container {
+  text-align: center;
+  max-width: 600px;
+}
+
+.bouncing-chip {
+  margin-bottom: 2rem;
+  color: var(--partner-text);
+  animation: bounce 2s ease-in-out infinite;
+  display: inline-block;
+  filter: drop-shadow(0 0 30px currentColor);
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-30px);
+  }
+}
+
+.wip-container h1 {
+  font-size: 3rem;
+  color: var(--partner-text);
+  margin-bottom: 1.5rem;
+}
+
+.wip-message {
+  font-size: 1.5rem;
+  color: var(--system-text);
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.wip-subtitle {
+  font-size: 1.1rem;
+  color: var(--text);
+  opacity: 0.8;
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .wip-container h1 {
+    font-size: 2.5rem;
+  }
+  
+  .wip-message {
+    font-size: 1.25rem;
+  }
+  
+  .bouncing-chip svg {
+    width: 80px;
+    height: 80px;
+  }
+}
