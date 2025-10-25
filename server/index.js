@@ -233,8 +233,9 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0';
 
-httpServer.listen(PORT, () => {
-  console.log(`🚀 RandomChips Server running on port ${PORT}`);
+httpServer.listen(PORT, HOST, () => {
+  console.log(`🚀 RandomChips Server running on ${HOST}:${PORT}`);
   console.log(`📡 Socket.io ready for connections`);
 });
