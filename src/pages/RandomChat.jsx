@@ -7,7 +7,10 @@ import { ChipIcon } from '../components/ChipIcon';
 import { sanitizeName } from '../utils/nameModeration';
 import './RandomChat.css';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 
+  (import.meta.env.MODE === 'production' 
+    ? 'https://rc-v5.up.railway.app' 
+    : 'http://localhost:3000');
 
 const CHAT_STATES = {
   SEARCHING: 'searching',
