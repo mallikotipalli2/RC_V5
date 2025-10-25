@@ -9,7 +9,7 @@ import './RandomChat.css';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 
   (import.meta.env.MODE === 'production' 
-    ? 'https://rc-v5.up.railway.app' 
+    ? 'https://rcv5-production.up.railway.app' 
     : 'http://localhost:3000');
 
 const CHAT_STATES = {
