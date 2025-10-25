@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import { useTheme } from '../context/ThemeContext';
 import { ChipButton, ChipIconButton } from '../components/ChipButton';
 import { ChipIcon } from '../components/ChipIcon';
 import { sanitizeName } from '../utils/nameModeration';
 import './RandomChat.css';
+
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
 
 const CHAT_STATES = {
   SEARCHING: 'searching',
@@ -25,8 +28,11 @@ export const RandomChat = () => {
   const [showNextConfirm, setShowNextConfirm] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('');
+  const [sessionId, setSessionId] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const socketRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
   const adEnabled = false; // Toggle for ad strip during dev
   const { theme, toggleTheme } = useTheme();
 
@@ -42,16 +48,66 @@ export const RandomChat = () => {
     }
   }, [state]);
 
-  // Simulate connection (demo mode)
+  // Initialize Socket.io connection
   useEffect(() => {
-    if (state === CHAT_STATES.SEARCHING) {
-      const timer = setTimeout(() => {
-        setState(CHAT_STATES.CONNECTED);
-        addSystemMessage('Connected to RandomChip');
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [state]);
+    const socket = io(SOCKET_URL, {
+      query: { userName }
+    });
+    
+    socketRef.current = socket;
+
+    // Connection events
+    socket.on('connect', () => {
+      console.log('Connected to server');
+      console.log('Emitting search event...');
+      socket.emit('search');
+    });
+
+    socket.on('connected', ({ partnerName: pName, sessionId: sId }) => {
+      console.log('Matched with partner:', pName);
+      setPartnerName(pName);
+      setSessionId(sId);
+      setState(CHAT_STATES.CONNECTED);
+      addSystemMessage(`Connected to ${pName}`);
+    });
+
+    socket.on('message', ({ message }) => {
+      addPartnerMessage(message);
+    });
+
+    socket.on('partner_typing', () => {
+      setIsPartnerTyping(true);
+    });
+
+    socket.on('partner_stopped_typing', () => {
+      setIsPartnerTyping(false);
+    });
+
+    socket.on('partner_disconnected', () => {
+      addSystemMessage('Chip disconnected');
+      setState(CHAT_STATES.DISCONNECTED);
+      setTimeout(() => {
+        setMessages([]);
+        setState(CHAT_STATES.SEARCHING);
+        setPartnerName('RandomChip');
+        setSessionId(null);
+        socket.emit('search');
+      }, 2000);
+    });
+
+    socket.on('banned', ({ reason, duration }) => {
+      addSystemMessage(`You have been temporarily banned: ${reason}. Please come back later.`);
+      setState(CHAT_STATES.DISCONNECTED);
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 5000);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      socket.disconnect();
+    };
+  }, [userName]);
 
   const addSystemMessage = (text) => {
     setMessages(prev => [...prev, {
@@ -81,27 +137,38 @@ export const RandomChat = () => {
   };
 
   const handleSend = () => {
-    if (!inputValue.trim() || state !== CHAT_STATES.CONNECTED) return;
+    if (!inputValue.trim() || state !== CHAT_STATES.CONNECTED || !socketRef.current) return;
 
-    addUserMessage(inputValue);
+    const message = inputValue.trim();
+    addUserMessage(message);
+    socketRef.current.emit('message', { message });
     setInputValue('');
 
-    // Demo: Simulate partner response
-    setTimeout(() => {
-      setIsPartnerTyping(true);
-      setTimeout(() => {
-        setIsPartnerTyping(false);
-        const responses = [
-          'Hey there!',
-          'Interesting...',
-          'Tell me more',
-          'Cool!',
-          'That\'s fascinating',
-          'I see what you mean'
-        ];
-        addPartnerMessage(responses[Math.floor(Math.random() * responses.length)]);
-      }, 1500);
-    }, 500);
+    // Stop typing indicator
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    socketRef.current.emit('stop_typing');
+  };
+
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value);
+
+    if (!socketRef.current || state !== CHAT_STATES.CONNECTED) return;
+
+    // Send typing indicator
+    socketRef.current.emit('typing');
+
+    // Clear previous timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Stop typing after 2 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      socketRef.current.emit('stop_typing');
+    }, 2000);
   };
 
   const handleKeyPress = (e) => {
@@ -118,15 +185,17 @@ export const RandomChat = () => {
       return;
     }
     
-    // Confirmed - disconnect
-    addSystemMessage('Chip disconnected');
-    setState(CHAT_STATES.DISCONNECTED);
+    // Confirmed - disconnect and search for new partner
+    if (socketRef.current) {
+      socketRef.current.emit('next');
+    }
+    
+    addSystemMessage('Finding new Chip...');
+    setState(CHAT_STATES.SEARCHING);
     setShowNextConfirm(false);
-    setTimeout(() => {
-      setMessages([]);
-      setState(CHAT_STATES.SEARCHING);
-      setPartnerName('RandomChip');
-    }, 1000);
+    setMessages([]);
+    setPartnerName('RandomChip');
+    setSessionId(null);
   };
 
   const handleReqPhoto = () => {
@@ -141,15 +210,32 @@ export const RandomChat = () => {
     }
   };
 
-  const handleReportSubmit = () => {
-    if (!reportReason) return;
+  const handleReportSubmit = async () => {
+    if (!reportReason || !sessionId) return;
     
-    // TODO: Backend implementation
-    // Store in DB: { ip, location, chatLogs, reason, timestamp }
-    // IP will be used for temporary bans
-    // Location for policy improvements
+    try {
+      // Submit report to backend
+      const response = await fetch(`${SOCKET_URL}/api/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sessionId,
+          reason: reportReason
+        })
+      });
+
+      if (response.ok) {
+        addSystemMessage(`Chip reported for ${reportReason}. Thank you for keeping RandomChips safe.`);
+      } else {
+        addSystemMessage('Failed to submit report. Please try again.');
+      }
+    } catch (error) {
+      console.error('Report submission error:', error);
+      addSystemMessage('Failed to submit report. Please try again.');
+    }
     
-    addSystemMessage(`Chip reported for ${reportReason}. Thank you for keeping RandomChips safe.`);
     setShowReportModal(false);
     setReportReason('');
     setTimeout(() => handleNextChip(), 1500);
@@ -223,7 +309,7 @@ export const RandomChat = () => {
           
           {isPartnerTyping && (
             <div className="typing-indicator fade-in">
-              Chip is typing…
+              {partnerName || 'Chip'} is typing…
             </div>
           )}
           
@@ -240,7 +326,7 @@ export const RandomChat = () => {
             className="chat-input"
             placeholder={state === CHAT_STATES.CONNECTED ? "Type your message…" : "Waiting for connection…"}
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={handleInputChange}
             onKeyPress={handleKeyPress}
             disabled={state !== CHAT_STATES.CONNECTED}
           />

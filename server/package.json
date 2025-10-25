@@ -1,0 +1,28 @@
+{
+  "name": "randomchips-backend",
+  "version": "1.0.0",
+  "description": "RandomChips Backend - Real-time Anonymous Chat Server",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": ["chat", "websocket", "socket.io", "anonymous"],
+  "author": "mallikotipalli2",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.6.1",
+    "cors": "^2.8.5",
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1",
+    "geoip-lite": "^1.4.7",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
